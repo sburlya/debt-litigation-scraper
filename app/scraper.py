@@ -39,6 +39,26 @@ class JusticeScraper:
                 # Wait for table to appear
                 await asyncio.sleep(3)
                 
+                # Log HTML to see what we got
+                html = await page.content()
+                
+                # Check if table exists in HTML
+                if "views-table" in html:
+                    logger.info("Table class 'views-table' FOUND in HTML")
+                else:
+                    logger.info("Table class 'views-table' NOT FOUND in HTML")
+                
+                # Log relevant HTML snippet
+                import re
+                table_match = re.search(r'<table[^>]*class="[^"]*views-table[^"]*"[^>]*>.*?</table>', html, re.DOTALL)
+                if table_match:
+                    logger.info(f"Table HTML (first 500 chars): {table_match.group(0)[:500]}")
+                else:
+                    # Log body content
+                    body_match = re.search(r'<body[^>]*>(.*?)</body>', html, re.DOTALL)
+                    if body_match:
+                        logger.info(f"Body HTML (first 1000 chars): {body_match.group(1)[:1000]}")
+                
                 # Log current URL
                 current_url = page.url
                 logger.info(f"Current URL: {current_url}")
