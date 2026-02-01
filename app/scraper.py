@@ -1,7 +1,7 @@
 """
 Playwright scraper for instante.justice.md
 """
-from scrapling import StealthyFetcher
+from scrapling import Fetcher
 from datetime import datetime
 from .models import LitigationCase
 import time
@@ -11,15 +11,6 @@ class JusticeScraper:
     """Scraper for Moldova court decisions portal"""
     
     BASE_URL = "https://instante.justice.md/ro/hotaririle-instantei"
-    
-    def __init__(self, headless: bool = True):
-        self.headless = headless
-        self.fetcher = None
-    
-    def _init_fetcher(self):
-        """Initialize fetcher lazily"""
-        if self.fetcher is None:
-            self.fetcher = StealthyFetcher(headless=self.headless, auto_match=True)
     
     def search_company(self, company_name: str) -> list[LitigationCase]:
         """
@@ -31,77 +22,47 @@ class JusticeScraper:
         Returns:
             List of LitigationCase objects
         """
-        self._init_fetcher()
         cases = []
         
         try:
-            page = self.fetcher.new_page()
+            fetcher = Fetcher(auto_match=True)
             
-            # Navigate to search page
-            page.goto(self.BASE_URL, wait_until="networkidle")
+            # Build search URL with query parameter
+            search_url = f"{self.BASE_URL}?filter_implicat={company_name}"
             
-            # Find and fill search input
-            input_selector = 'input[name="filter_implicat"]'
-            if not page.query_selector(input_selector):
-                input_selector = '.views-exposed-form input[type="text"]'
+            # Fetch the page
+            response = fetcher.get(search_url)
             
-            page.fill(input_selector, company_name)
-            
-            # Click search button
-            submit_selector = '.views-exposed-form button[type="submit"], .views-exposed-form input[type="submit"]'
-            page.click(submit_selector)
-            
-            # Wait for results
-            time.sleep(5)
+            if response.status != 200:
+                raise RuntimeError(f"HTTP {response.status}")
             
             # Parse results table
-            rows = page.query_selector_all("table.views-table tbody tr")
+            rows = response.css("table.views-table tbody tr")
             
             for row in rows:
-                cells = row.query_selector_all("td")
-                if len(cells) >= 3:
-                    case = self._parse_row(cells)
-                    if case:
-                        cases.append(case)
+                case = self._parse_row(row)
+                if case:
+                    cases.append(case)
             
         except Exception as e:
             raise RuntimeError(f"Scraping failed: {str(e)}")
-        finally:
-            if self.fetcher:
-                self.fetcher.close()
-                self.fetcher = None
         
         return cases
     
-    def _parse_row(self, cells) -> LitigationCase | None:
+    def _parse_row(self, row) -> LitigationCase | None:
         """Parse table row into LitigationCase"""
         try:
-            # Extract text from cells
-            texts = [cell.inner_text().strip() for cell in cells]
+            cells = row.css("td")
             
-            # Based on justice_results.json structure:
-            # Column order: court, case_number, parties/description, dates...
-            if len(texts) >= 3:
+            if len(cells) >= 3:
                 return LitigationCase(
-                    court=texts[0] if texts[0] else "N/A",
-                    case_number=texts[1] if texts[1] else "N/A",
-                    parties=texts[2] if texts[2] else "N/A",
-                    filing_date=texts[3] if len(texts) > 3 else None,
-                    hearing_date=texts[4] if len(texts) > 4 else None,
-                    status=texts[5] if len(texts) > 5 else None,
+                    court=cells[0].text.strip() if cells[0].text else "N/A",
+                    case_number=cells[1].text.strip() if cells[1].text else "N/A",
+                    parties=cells[2].text.strip() if cells[2].text else "N/A",
+                    filing_date=cells[3].text.strip() if len(cells) > 3 and cells[3].text else None,
+                    hearing_date=cells[4].text.strip() if len(cells) > 4 and cells[4].text else None,
+                    status=cells[5].text.strip() if len(cells) > 5 and cells[5].text else None,
                 )
         except Exception:
             pass
         return None
-
-
-# Singleton instance
-_scraper: JusticeScraper | None = None
-
-
-def get_scraper() -> JusticeScraper:
-    """Get or create scraper instance"""
-    global _scraper
-    if _scraper is None:
-        _scraper = JusticeScraper(headless=True)
-    return _scraper
