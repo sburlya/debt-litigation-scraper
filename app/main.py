@@ -54,7 +54,7 @@ async def scrape_litigation(request: ScrapeRequest):
         raise HTTPException(status_code=400, detail="company_name must be at least 3 characters")
     
     try:
-        scraper = JusticeScraper(headless=True)
+        scraper = JusticeScraper()
         cases = scraper.search_company(company_name)
         
         return ScrapeResponse(
