@@ -19,7 +19,12 @@ class JusticeScraper:
         """Search for court cases by company name"""
         cases = []
         
+        # Build direct URL with search parameter
+        from urllib.parse import quote
+        search_url = f"{self.BASE_URL}?filter_implicat={quote(company_name)}"
+        
         logger.info(f"Starting search for: {company_name}")
+        logger.info(f"Direct URL: {search_url}")
         
         async with async_playwright() as p:
             logger.info("Launching browser...")
@@ -27,82 +32,16 @@ class JusticeScraper:
             page = await browser.new_page()
             
             try:
-                logger.info(f"Navigating to {self.BASE_URL}")
-                await page.goto(self.BASE_URL, wait_until="networkidle", timeout=30000)
+                logger.info(f"Navigating to {search_url}")
+                await page.goto(search_url, wait_until="networkidle", timeout=30000)
                 logger.info("Page loaded")
                 
-                # Wait for form to be visible
-                logger.info("Waiting for search form...")
-                await page.wait_for_selector('.views-exposed-form', timeout=10000)
-                logger.info("Form found")
+                # Wait for table to appear
+                await asyncio.sleep(3)
                 
-                # Try multiple selectors for input
-                input_selectors = [
-                    'input[name="filter_implicat"]',
-                    '#edit-filter-implicat',
-                    '.views-exposed-form input[type="text"]',
-                    'input.form-text'
-                ]
-                
-                input_found = False
-                for selector in input_selectors:
-                    try:
-                        el = await page.query_selector(selector)
-                        if el:
-                            logger.info(f"Input found with: {selector}")
-                            await page.fill(selector, company_name)
-                            input_found = True
-                            break
-                    except:
-                        continue
-                
-                if not input_found:
-                    # Log page HTML for debug
-                    html = await page.content()
-                    logger.error(f"No input found. Page HTML (first 2000 chars): {html[:2000]}")
-                    raise RuntimeError("Search input not found")
-                
-                logger.info("Search term filled")
-                
-                # Click search button using JavaScript (more reliable)
-                submit_selectors = [
-                    'input[type="submit"]',
-                    'button[type="submit"]',
-                    '.form-submit'
-                ]
-                
-                submit_found = False
-                for selector in submit_selectors:
-                    try:
-                        el = await page.query_selector(selector)
-                        if el:
-                            logger.info(f"Submit found with: {selector}")
-                            # Use JavaScript click - more reliable
-                            await el.evaluate("el => el.click()")
-                            submit_found = True
-                            logger.info("Search button clicked via JS")
-                            break
-                    except Exception as e:
-                        logger.info(f"Click failed for {selector}: {e}")
-                        continue
-                
-                if not submit_found:
-                    raise RuntimeError("Submit button not found")
-                
-                logger.info("Waiting for results...")
-                
-                # Wait for results
-                await asyncio.sleep(5)
-                
-                # Take screenshot for debugging
-                await page.screenshot(path="/tmp/debug_screenshot.png")
-                
-                # Log current URL and page HTML snippet
+                # Log current URL
                 current_url = page.url
-                logger.info(f"Current URL after search: {current_url}")
-                
-                html_snippet = await page.content()
-                logger.info(f"Page HTML (first 1500 chars): {html_snippet[:1500]}")
+                logger.info(f"Current URL: {current_url}")
                 
                 # Parse results table
                 rows = await page.query_selector_all("table.views-table tbody tr")
