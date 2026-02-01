@@ -5,6 +5,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from .models import ScrapeRequest, ScrapeResponse, LitigationCase
 from .scraper import JusticeScraper
@@ -67,6 +71,7 @@ async def scrape_litigation(request: ScrapeRequest):
         )
         
     except Exception as e:
+        logger.error(f"SCRAPER ERROR: {str(e)}")
         return ScrapeResponse(
             success=False,
             company_name=company_name,
