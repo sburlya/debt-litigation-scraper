@@ -94,6 +94,16 @@ class JusticeScraper:
                 # Wait for results
                 await asyncio.sleep(5)
                 
+                # Take screenshot for debugging
+                await page.screenshot(path="/tmp/debug_screenshot.png")
+                
+                # Log current URL and page HTML snippet
+                current_url = page.url
+                logger.info(f"Current URL after search: {current_url}")
+                
+                html_snippet = await page.content()
+                logger.info(f"Page HTML (first 1500 chars): {html_snippet[:1500]}")
+                
                 # Parse results table
                 rows = await page.query_selector_all("table.views-table tbody tr")
                 logger.info(f"Found {len(rows)} table rows")
