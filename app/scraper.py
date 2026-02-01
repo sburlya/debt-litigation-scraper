@@ -64,12 +64,10 @@ class JusticeScraper:
                 
                 logger.info("Search term filled")
                 
-                # Try multiple selectors for submit button
+                # Click search button using JavaScript (more reliable)
                 submit_selectors = [
                     'input[type="submit"]',
                     'button[type="submit"]',
-                    '#edit-submit-search-results',
-                    '.views-exposed-form button',
                     '.form-submit'
                 ]
                 
@@ -79,16 +77,19 @@ class JusticeScraper:
                         el = await page.query_selector(selector)
                         if el:
                             logger.info(f"Submit found with: {selector}")
-                            await page.click(selector)
+                            # Use JavaScript click - more reliable
+                            await el.evaluate("el => el.click()")
                             submit_found = True
+                            logger.info("Search button clicked via JS")
                             break
-                    except:
+                    except Exception as e:
+                        logger.info(f"Click failed for {selector}: {e}")
                         continue
                 
                 if not submit_found:
                     raise RuntimeError("Submit button not found")
                 
-                logger.info("Search button clicked, waiting for results...")
+                logger.info("Waiting for results...")
                 
                 # Wait for results
                 await asyncio.sleep(5)
