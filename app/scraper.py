@@ -34,34 +34,33 @@ class JusticeScraper:
             try:
                 logger.info(f"Navigating to {search_url}")
                 await page.goto(search_url, wait_until="networkidle", timeout=30000)
-                logger.info("Page loaded")
+                logger.info("Page loaded, waiting for content to render...")
                 
-                # Wait for table to appear
-                await asyncio.sleep(3)
+                # Wait longer for JavaScript to render
+                await asyncio.sleep(10)
+                
+                # Try to wait for any content
+                try:
+                    await page.wait_for_selector('table', timeout=15000)
+                    logger.info("Table element found")
+                except:
+                    logger.info("No table found after waiting")
                 
                 # Log HTML to see what we got
                 html = await page.content()
+                logger.info(f"HTML length: {len(html)} chars")
                 
-                # Check if table exists in HTML
+                # Check for blocking/captcha
+                if "captcha" in html.lower() or "blocked" in html.lower() or "access denied" in html.lower():
+                    logger.error("SITE BLOCKED ACCESS - captcha or access denied detected")
+                
+                # Check if table exists
                 if "views-table" in html:
-                    logger.info("Table class 'views-table' FOUND in HTML")
+                    logger.info("Table class 'views-table' FOUND")
                 else:
-                    logger.info("Table class 'views-table' NOT FOUND in HTML")
-                
-                # Log relevant HTML snippet
-                import re
-                table_match = re.search(r'<table[^>]*class="[^"]*views-table[^"]*"[^>]*>.*?</table>', html, re.DOTALL)
-                if table_match:
-                    logger.info(f"Table HTML (first 500 chars): {table_match.group(0)[:500]}")
-                else:
-                    # Log body content
-                    body_match = re.search(r'<body[^>]*>(.*?)</body>', html, re.DOTALL)
-                    if body_match:
-                        logger.info(f"Body HTML (first 1000 chars): {body_match.group(1)[:1000]}")
-                
-                # Log current URL
-                current_url = page.url
-                logger.info(f"Current URL: {current_url}")
+                    logger.info("Table class 'views-table' NOT FOUND")
+                    # Log more HTML
+                    logger.info(f"Full HTML (first 3000 chars): {html[:3000]}")
                 
                 # Parse results table
                 rows = await page.query_selector_all("table.views-table tbody tr")
