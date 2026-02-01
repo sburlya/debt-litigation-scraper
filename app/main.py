@@ -59,7 +59,7 @@ async def scrape_litigation(request: ScrapeRequest):
     
     try:
         scraper = JusticeScraper()
-        cases = scraper.search_company(company_name)
+        cases = await scraper.search_company(company_name)
         
         return ScrapeResponse(
             success=True,
