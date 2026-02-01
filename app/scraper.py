@@ -31,19 +31,67 @@ class JusticeScraper:
                 await page.goto(self.BASE_URL, wait_until="networkidle", timeout=30000)
                 logger.info("Page loaded")
                 
-                # Fill search input
-                input_selector = 'input[name="filter_implicat"]'
-                await page.fill(input_selector, company_name)
+                # Wait for form to be visible
+                logger.info("Waiting for search form...")
+                await page.wait_for_selector('.views-exposed-form', timeout=10000)
+                logger.info("Form found")
+                
+                # Try multiple selectors for input
+                input_selectors = [
+                    'input[name="filter_implicat"]',
+                    '#edit-filter-implicat',
+                    '.views-exposed-form input[type="text"]',
+                    'input.form-text'
+                ]
+                
+                input_found = False
+                for selector in input_selectors:
+                    try:
+                        el = await page.query_selector(selector)
+                        if el:
+                            logger.info(f"Input found with: {selector}")
+                            await page.fill(selector, company_name)
+                            input_found = True
+                            break
+                    except:
+                        continue
+                
+                if not input_found:
+                    # Log page HTML for debug
+                    html = await page.content()
+                    logger.error(f"No input found. Page HTML (first 2000 chars): {html[:2000]}")
+                    raise RuntimeError("Search input not found")
+                
                 logger.info("Search term filled")
                 
-                # Click search button
-                submit_selector = '.views-exposed-form input[type="submit"]'
-                await page.click(submit_selector)
-                logger.info("Search button clicked")
+                # Try multiple selectors for submit button
+                submit_selectors = [
+                    'input[type="submit"]',
+                    'button[type="submit"]',
+                    '#edit-submit-search-results',
+                    '.views-exposed-form button',
+                    '.form-submit'
+                ]
+                
+                submit_found = False
+                for selector in submit_selectors:
+                    try:
+                        el = await page.query_selector(selector)
+                        if el:
+                            logger.info(f"Submit found with: {selector}")
+                            await page.click(selector)
+                            submit_found = True
+                            break
+                    except:
+                        continue
+                
+                if not submit_found:
+                    raise RuntimeError("Submit button not found")
+                
+                logger.info("Search button clicked, waiting for results...")
                 
                 # Wait for results
                 await asyncio.sleep(5)
-                logger.info("Waited 5 seconds")
                 
                 # Parse results table
                 rows = await page.query_selector_all("table.views-table tbody tr")
